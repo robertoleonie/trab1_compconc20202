@@ -25,7 +25,7 @@ N# Threads | Sequencial | Concorrente | Ganho
 ## Matriz 1000x1000
 
 ### Sequencial 
-Total time os execution is 6.6071820 seconds
+Tempo sequencial:
 
 ### Concorrente
 N# Threads | Inicializar | Execução Concorrente | Liberar memória | Total
@@ -43,7 +43,7 @@ N# Threads | Sequencial | Concorrente | Ganho
 
 ## Matriz 2000x2000
 ### Sequencial 
-Total time os execution is 51.416380 seconds
+Tempo sequencial:
 
 ### Concorrente
 N# Threads | Inicializar | Execução Concorrente | Liberar memória | Total
