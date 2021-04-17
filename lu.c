@@ -1,15 +1,28 @@
+// Este programa resolve de forma concorrente a decomposição LU de Doolittle de matrizes
+// Definida por A = LU
+// Onde U é uma matriz dita triangular superior (valores acima abaixo da diagonal zerados)
+// E L é uma matriz dita triangular inferior (valores acima da diagonal zerados)
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <math.h>
 #include "timer.h"
 
+// Dimensão da matriz e numero de threads
 int DIM;
 int NTHREADS;
 
-float **matA;
-float **matU;
-float **matL;
+// Alocação das 3 matrizes A=LU
+double **matA;
+double **matU;
+double **matL;
+double **matUSeq;
+double **matLSeq;
 
+// Tempo sequencial
+double tempoSequencial;
+
+// Função sequencial de decomposição LU utilizando o algoritmo de 
 void sequencial() {
 	float start, finish;
 
@@ -20,32 +33,33 @@ void sequencial() {
 		for (int k = i; k < DIM; k++) {
 			int soma = 0;
 			for (int j = 0; j < i; j++) {
-				soma += (matL[i][j] * matU[j][k]);
+				soma += (matLSeq[i][j] * matUSeq[j][k]);
 			}
-			matU[i][k] = matA[i][k] - soma;
+			matUSeq[i][k] = matA[i][k] - soma;
 		}
 
 		// Para a Matriz L
 		for (int k = i; k < DIM; k++) {
 			if (i == k)
-				matL[i][i] = 1;
+				matLSeq[i][i] = 1;
 			else {
 				int soma = 0;
 				
 				for (int j = 0; j < i; j++) {
-					soma += (matL[k][j] * matU[j][i]);
+					soma += (matLSeq[k][j] * matUSeq[j][i]);
 				}
-				matL[k][i] = (matA[k][i] - soma) / matU[i][i];
+				matLSeq[k][i] = (matA[k][i] - soma) / matUSeq[i][i];
 			}
 		}
 	}
 
 	GET_TIME(finish);
 
+	// Printando as matrizes
 	// printf("MATRIZ L: \n");
 	// for (int i = 0; i < DIM; i++) {
 	// 	for (int j = 0; j < DIM; j++) {
-	// 		printf("%.1lf ", matL[i][j]);
+	// 		printf("%.1lf | ", matLSeq[i][j]);
 	// 	}
 	// 	printf("\n");
 	// }
@@ -54,20 +68,23 @@ void sequencial() {
 	// printf("MATRIZ U: \n");
 	// for (int i = 0; i < DIM; i++) {
 	// 	for (int j = 0; j < DIM; j++)	{
-	// 		printf("%.1lf ", matU[i][j]);
+	// 		printf("%.1lf | ", matUSeq[i][j]);
 	// 	}
 	// 	printf("\n");
 	// }
-	printf("\n");
+	// printf("\n");
+
 	// Calculando tempo Sequencial
 	printf("TEMPO SEQUENCIAL: %.15lf \n\n", finish - start);
-
-	printf("\n\n");
+	tempoSequencial = finish - start;
 }
 
+// Tarefa realizadas pelas threads
+// Recebe como parametro o identificador local da thread
 void* tarefa(void* arg) {
 	long int local = (int *) arg;
 
+	// Divisão de tarefas feita de forma alternada
 	for (long int i = local; i < DIM; i+= NTHREADS) {
 		// Para a Matriz U
 		for (int k = i; k < DIM; k++) {
@@ -96,68 +113,99 @@ void* tarefa(void* arg) {
 	pthread_exit(NULL);
 }
 
+// Função principal
 int main(int argc, char *argv[]) {
+	// Variaveis de tempo
 	double start, finish; 
 
+	// Variavel aux para inicialização de A
 	int aux;
+
+	// Variavel identificadora da thread
 	pthread_t *tid;
 
+	// Verificação de parametros
 	if (argc < 3) {
-		printf("escreva: %s <Dimensao da matriz> <numero de threads> \n", argv[0]);
+		printf("escreva: %s <Dimensao da matriz A> <numero de threads> \n", argv[0]);
 		return 1;
 	}
 
 	DIM = atoi(argv[1]);
 	NTHREADS = atoi(argv[2]);
+
+	// Checagem se o numero de threads não é maior que o número da dimensão da matriz
 	if (NTHREADS > DIM) {
 		NTHREADS = DIM;
 	}
 
+	// Alocação de memória para o identificador do sistema das threads
 	tid = (pthread_t *) malloc(sizeof(pthread_t) * NTHREADS);
   if (tid == NULL) {
     fprintf(stderr, "ERRO--malloc\n");
     return 2;
   }
 
-	matA = malloc (DIM * sizeof (float *));
+	// Alocação de memória das matrizes
+	matA = malloc (DIM * sizeof (double *));
 	for (int i = 0; i < DIM; ++i) {
-      matA[i] = malloc (DIM * sizeof (float));
+      matA[i] = malloc (DIM * sizeof (double));
 	}
 	if (matA == NULL) {
 		printf("ERROR--malloc\n");
 		return 2;
 	}
 
-	matL = malloc (DIM * sizeof (float *));
+	matL = malloc (DIM * sizeof (double *));
 	for (int i = 0; i < DIM; ++i) {
-      matL[i] = malloc (DIM * sizeof (float));
+      matL[i] = malloc (DIM * sizeof (double));
 	}
 	if (matL == NULL)	{
 		printf("ERROR--malloc\n");
 		return 2;
 	}
 
-	matU = malloc (DIM * sizeof (float *));
+	matLSeq = malloc (DIM * sizeof (double *));
 	for (int i = 0; i < DIM; ++i) {
-      matU[i] = malloc (DIM * sizeof (float));
+      matLSeq[i] = malloc (DIM * sizeof (double));
+	}
+	if (matLSeq == NULL)	{
+		printf("ERROR--malloc\n");
+		return 2;
+	}
+
+	matU = malloc (DIM * sizeof (double *));
+	for (int i = 0; i < DIM; ++i) {
+      matU[i] = malloc (DIM * sizeof (double));
 	}
 	if (matU == NULL)	{
 		printf("ERROR--malloc\n");
 		return 2;
 	}
 
+	matUSeq = malloc (DIM * sizeof (double *));
+	for (int i = 0; i < DIM; ++i) {
+      matUSeq[i] = malloc (DIM * sizeof (double));
+	}
+	if (matUSeq == NULL)	{
+		printf("ERROR--malloc\n");
+		return 2;
+	}
+
 	for (int i = 0; i < DIM; i++) {
 		for (int j = 0; j < DIM; j++) {
-			// scanf("%f", &matA[i][j]);
+			// Caso queira entrar com os parametros da Matriz
+			// Descomente a linha abaixo e comente as outras 2 linhas abaixo
+			// scanf("%f | ", &matA[i][j]);
 			aux = rand() % 10;
 			matA[i][j] = (float) aux; // numeros aleatorios entre 0 e 9
 		}
+    // printf("\n");
 	}
 
 	// printf("MATRIZ A: \n");
 	// for (int i = 0; i < DIM; i++)	{
 	// 	for (int j = 0; j < DIM; j++)	{
-	// 		printf("%.1f ", matA[i][j]);
+	// 		printf("%.1f | ", matA[i][j]);
 	// 	}
 	// 	printf("\n");
 	// }
@@ -184,12 +232,13 @@ int main(int argc, char *argv[]) {
     }
 	}
 	GET_TIME(finish);
+	printf("TEMPO CONCORRENTE: %.15lf\n\n\n", finish-start);
 
 	// Printando Matrizes da execução concorrente
 	// printf("MATRIZ L: \n");
 	// for (int i = 0; i < DIM; i++) {
 	// 	for (int j = 0; j < DIM; j++) {
-	// 		printf("%.1lf ", matL[i][j]);
+	// 		printf("%.1lf | ", matL[i][j]);
 	// 	}
 	// 	printf("\n");
 	// }
@@ -198,20 +247,52 @@ int main(int argc, char *argv[]) {
 	// printf("MATRIZ U: \n");
 	// for (int i = 0; i < DIM; i++) {
 	// 	for (int j = 0; j < DIM; j++)	{
-	// 		printf("%.1lf ", matU[i][j]);
+	// 		printf("%.1lf | ", matU[i][j]);
 	// 	}
 	// 	printf("\n");
 	// }
 	// printf("\n");
 
+	// Validando resultados
+  double margem = pow(10,-6);
+  // Validação da Matriz L
+	for (int i = 0; i < DIM; i++) {
+    for (int j = 0; j < DIM; j++) {
+			if (abs(matL[i][j] - matLSeq[i][j]) > margem) {
+        printf("--ERRO na validação de L: matL[%d][%d] = %lf e matLSeq[%d][%d] = %lf\n\n", i, j, matL[i][j], i,j, matLSeq[i][j]);
+				exit(-1); 
+      }
+
+			if (abs(matU[i][j] - matUSeq[i][j]) > margem) {
+        printf("--ERRO na validação de U: matU[%d][%d] = %lf e matUSeq[%d][%d] = %lf\n\n", i, j, matU[i][j], i,j, matUSeq[i][j]);
+				exit(-1); 
+      }
+    }     
+  }
+
 	// Calculando tempo concorrente
-	printf("TEMPO CONCORRENTE: %.15lf\n\n", finish-start);
+	printf("COMPARACAO DE TEMPO:\n");
+	printf("TEMPO SEQUENCIAL: %.15lf\n", tempoSequencial);
+	printf("TEMPO CONCORRENTE: %.15lf\n", finish-start);
+	if (tempoSequencial > finish-start) {
+		printf("O TEMPO CONCORRENTE GANHOU\n");
+	} else if (tempoSequencial < finish-start) {
+		printf("O TEMPO SEQUENCIAL GANHOU\n");
+	} else {
+		printf("AMBOS OS TEMPOS FORAM IGUAIS!\n");
+	}
+
+	// Calculo do ganho de performance
+	printf("GANHO DE PERFORMANCE: ~%lf\n", tempoSequencial / (finish - start));
+	printf("\n");
 
 
 	// Liberando espaço de memória
 	free(matA);
 	free(matL);
 	free(matU);
+	free(matLSeq);
+	free(matUSeq);
 	free(tid);
 
 	return 0;
