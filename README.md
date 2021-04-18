@@ -2,7 +2,9 @@
 Diretorio para Trabalho 1 da disciplina Comp Conc 2020/2 (UFRJ) proposto pela [Profa. Silvana Rossetto](https://dcc.ufrj.br/~silvana/);
 
 Integrantes:
+
 Roberto Leonie Ferreira Moreira 
+
 116192266 - Thales Monteiro Pierini Macena - thalesmacena@gmail.com
 
 ## Sobre
