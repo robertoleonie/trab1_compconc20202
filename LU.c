@@ -23,9 +23,12 @@ double **matUSeq;
 double tempoSequencial;
 
 // Criacao do Lock
-pthread_mutex_t lock;
-// pthread_mutex_lock(&lock);
-// pthread_mutex_unlock(&lock);
+pthread_mutex_t LOCK;
+pthread_mutex_t LOCKCOND;
+pthread_cond_t COND;
+int CONT;
+// pthread_mutex_lock(&LOCK);
+// pthread_mutex_unlock(&LOCK);
 
 // Função sequencial de decomposição LU utilizando o algoritmo de Doolittle
 void sequencial() {
@@ -60,23 +63,23 @@ void sequencial() {
 	GET_TIME(finish);
 
 	// Printando as matrizes
-	printf("MATRIZ L: \n");
-	for (int i = 0; i < DIM; i++) {
-		for (int j = 0; j < DIM; j++) {
-			printf("%.1lf | ", matLSeq[i][j]);
-		}
-		printf("\n");
-	}
-	printf("\n");
+	// printf("MATRIZ L: \n");
+	// for (int i = 0; i < DIM; i++) {
+	// 	for (int j = 0; j < DIM; j++) {
+	// 		printf("%.1lf | ", matLSeq[i][j]);
+	// 	}
+	// 	printf("\n");
+	// }
+	// printf("\n");
 
-	printf("MATRIZ U: \n");
-	for (int i = 0; i < DIM; i++) {
-		for (int j = 0; j < DIM; j++)	{
-			printf("%.1lf | ", matUSeq[i][j]);
-		}
-		printf("\n");
-	}
-	printf("\n");
+	// printf("MATRIZ U: \n");
+	// for (int i = 0; i < DIM; i++) {
+	// 	for (int j = 0; j < DIM; j++)	{
+	// 		printf("%.1lf | ", matUSeq[i][j]);
+	// 	}
+	// 	printf("\n");
+	// }
+	// printf("\n");
 
 	// Calculando tempo Sequencial
 	tempoSequencial = finish - start;
@@ -89,9 +92,10 @@ void *tarefa(void *arg) {
 	long int localId = (long int) arg;
 
 	// Divisão de tarefas feita de forma alternada
-	for (long int i = localId; i < DIM; i += NTHREADS) {
+	for (long int i = 0; i < DIM; i += 1) {
 		// Para a Matriz U
-		for (long int k = i; k < DIM; k++) {
+		// E feita a divisão das threads para o calculo de uma linha de U de posição i
+		for (long int k = localId + i; k < DIM; k += NTHREADS) {
 			int soma = 0;
 			for (long int j = 0; j < i; j++) {
 				soma += (matLConc[i][j] * matUConc[j][k]);
@@ -99,8 +103,27 @@ void *tarefa(void *arg) {
 			matUConc[i][k] = matA[i][k] - soma;
 		}
 
-		// Para a Matriz L
-		for (long int k = i; k < DIM; k++) {
+		// Lógica condicional, é preciso que o calculo da linha de U seja finalizado para que seja prosseguido o calculo da coluna de L de posição i 
+		// como o if não é uma operação atomica.
+		// É preciso usar um mutex-lock para evitar o problema do Despertar Perdido 
+		pthread_mutex_lock(&LOCK);
+		// Conta a quantidade de threads que executaram
+		CONT ++;
+
+		// Verifica se todas as threads executaram
+		if (CONT == NTHREADS) {
+			// Se sim reseta o contador, libera o lock da condicional e todas as threas que estão esperando
+			CONT = 0;
+			pthread_mutex_unlock(&LOCK);
+			pthread_cond_broadcast(&COND);
+		} else {
+			// Se não, libera a próxima thread pro testar a condicional e aguarda
+			pthread_mutex_unlock(&LOCK);
+			pthread_cond_wait(&COND, &LOCKCOND);
+		}
+
+		// Para a Matrix L é feito a divisão das threads para calcular a coluna de L posição i
+		for (long int k = localId + i; k < DIM; k+=NTHREADS) {
 			if (i == k) {
 				matLConc[i][i] = 1;
 			}
@@ -112,7 +135,30 @@ void *tarefa(void *arg) {
 				matLConc[k][i] = (matA[k][i] - soma) / matUConc[i][i];
 			}
 		}
+
+		// Lógica condicional, é preciso que o calculo da coluna L seja finalizado para que seja prosseguido o calculo L e U de posição i++ 
+		// como o if não é uma operação atomica.
+		// É preciso usar um mutex-lock para evitar o problema do Despertar Perdido 
+		// Para a Matriz L 
+		pthread_mutex_lock(&LOCK);
+		// Conta a quantidade de threads que executaram
+		CONT ++;
+
+		// Verifica se todas as threads executaram
+		if (CONT == NTHREADS) {
+			// Se sim reseta o contador, libera o lock da condicional e todas as threas que estão esperando
+			CONT = 0;
+			pthread_mutex_unlock(&LOCK);
+			pthread_cond_broadcast(&COND);
+		} else {
+			// Se não, libera a próxima thread pro testar a condicional e aguarda
+			pthread_mutex_unlock(&LOCK);
+			pthread_cond_wait(&COND, &LOCKCOND);
+		}
 	}
+	// Quando uma thread termina sua execução, ela libera a próxima que estava travada e libera a condicional
+	pthread_cond_signal(&COND);
+	pthread_mutex_unlock(&LOCKCOND);
 	pthread_exit(NULL);
 }
 
@@ -120,12 +166,16 @@ void *tarefa(void *arg) {
 int main(int argc, char *argv[]) {
 	// Variaveis de tempo
 	double start, finish;
-
 	// Variavel aux para inicialização de A
 	int aux;
 
 	// Variavel identificadora da thread
 	pthread_t *tid;
+
+	// Iniciação das matrizes
+	pthread_mutex_init(&LOCK, NULL);
+	pthread_mutex_init(&LOCKCOND, NULL);
+  pthread_cond_init(&COND, NULL);
 
 	// Verificação de parametros
 	if (argc < 3) {
@@ -205,14 +255,14 @@ int main(int argc, char *argv[]) {
 		// printf("\n");
 	}
 
-	printf("MATRIZ A: \n");
-	for (int i = 0; i < DIM; i++)	{
-		for (int j = 0; j < DIM; j++)	{
-			printf("%.1f | ", matA[i][j]);
-		}
-		printf("\n");
-	}
-	printf("\n\n");
+	// printf("MATRIZ A: \n");
+	// for (int i = 0; i < DIM; i++)	{
+	// 	for (int j = 0; j < DIM; j++)	{
+	// 		printf("%.1f | ", matA[i][j]);
+	// 	}
+	// 	printf("\n");
+	// }
+	// printf("\n\n");
 
 	// Execução sequencial
 	printf("EXECUCAO SEQUENCIAL\n");
@@ -230,6 +280,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	for (long int i = 0; i < NTHREADS; i++) {
+		
 		if (pthread_join(*(tid + i), NULL)) {
 			fprintf(stderr, "ERRO--pthread_join\n");
 			return 3;
@@ -241,23 +292,23 @@ int main(int argc, char *argv[]) {
 	printf("TEMPO CONCORRENTE: %.15lf\n\n\n", tempoConcorrente);
 
 	// Printando Matrizes da execução concorrente
-	printf("MATRIZ L: \n");
-	for (int i = 0; i < DIM; i++) {
-		for (int j = 0; j < DIM; j++) {
-			printf("%.1lf | ", matLConc[i][j]);
-		}
-		printf("\n");
-	}
-	printf("\n");
+	// printf("MATRIZ L: \n");
+	// for (int i = 0; i < DIM; i++) {
+	// 	for (int j = 0; j < DIM; j++) {
+	// 		printf("%.1lf | ", matLConc[i][j]);
+	// 	}
+	// 	printf("\n");
+	// }
+	// printf("\n");
 
-	printf("MATRIZ U: \n");
-	for (int i = 0; i < DIM; i++) {
-		for (int j = 0; j < DIM; j++)	{
-			printf("%.1lf | ", matUConc[i][j]);
-		}
-		printf("\n");
-	}
-	printf("\n");
+	// printf("MATRIZ U: \n");
+	// for (int i = 0; i < DIM; i++) {
+	// 	for (int j = 0; j < DIM; j++)	{
+	// 		printf("%.1lf | ", matUConc[i][j]);
+	// 	}
+	// 	printf("\n");
+	// }
+	// printf("\n");
 
 	// Validando resultados
 	double epsilon = pow(10, -9);
@@ -304,6 +355,10 @@ int main(int argc, char *argv[]) {
 	free(matLSeq);
 	free(matUSeq);
 	free(tid);
+
+	pthread_mutex_destroy(&LOCK);
+	pthread_mutex_destroy(&LOCKCOND);
+  pthread_cond_destroy(&COND);
 
 	return 0;
 }
