@@ -21,30 +21,30 @@ A validação de assertividade do algoritmo é calculado através da diferença 
 
 N# Threads | Sequencial | Concorrente | Ganho
 --- | --- | --- | ---
-**1** | 0s | 0s | ~0 
-**2** | 0s | 0s | ~0
-**4** | 0s | 0s | ~0
+**1** | 0.0029s | 0.0035s | ~0.83 
+**2** | 0.0029s | 0.01166s | ~0.25
+**4** | 0.0029s | 0.0321s | ~0.09
 
 ### Matriz 500x500
 
 N# Threads | Sequencial | Concorrente | Ganho
 --- | --- | --- | ---
-**1** | 0s | 0s | ~0 
-**2** | 0s | 0s | ~0
-**4** | 0s | 0s | ~0
+**1** | 0.3725s | 0.3670s | ~1.01
+**2** | 0.3725s | 0.4468s | ~0.83
+**4** | 0.3725s |  0.5920s | ~0.63
 
 ### Matriz 1000x1000
 
 N# Threads | Sequencial | Concorrente | Ganho
 --- | --- | --- | ---
-**1** | 0s | 0s | ~0 
-**2** | 0s | 0s | ~0
-**4** | 0s | 0s | ~0
+**1** | 3.3341s | 3.1808s | ~1.05 
+**2** | 3.2883s | 3.6186s | ~0.91
+**4** | 3.3519s | 3.9078s | ~0.86
 
 ### Matriz 2000x2000
 
 N# Threads | Sequencial | Concorrente | Ganho
 --- | --- | --- | ---
-**1** | 0s | 0s | ~0 
-**2** | 0s | 0s | ~0
+**1** | 37.8179s | 35.2777s | ~1.07
+**2** | 31.9959s | 0s | ~0
 **4** | 0s | 0s | ~0
