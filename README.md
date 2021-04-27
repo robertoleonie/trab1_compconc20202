@@ -46,5 +46,5 @@ N# Threads | Sequencial | Concorrente | Ganho
 N# Threads | Sequencial | Concorrente | Ganho
 --- | --- | --- | ---
 **1** | 37.8179s | 35.2777s | ~1.07
-**2** | 31.9959s | 0s | ~0
-**4** | 0s | 0s | ~0
+**2** | 33.8559s | 40.2317s | ~0.84
+**4** | 33.65419s | 44.1284s | ~0.76
